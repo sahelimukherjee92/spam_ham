@@ -1,21 +1,23 @@
 #Importing Libraries
 import os
 import pandas as pd
-# import numpy as np
 import matplotlib.pyplot as plt
 import chardet
-import sklearn
 import re
 import nltk
 from nltk.corpus import stopwords
 nltk.download('stopwords')
-# from nltk.stem.porter import PorterStemmer as PS
 nltk.download('wordnet')
 from nltk.stem import WordNetLemmatizer
-# import csv
+import sklearn
+from sklearn.feature_extraction.text import  CountVectorizer
 from nltk.util import ngrams
-from collections import Counter
 from nltk import word_tokenize
+from itertools import chain
+from scipy.stats import binom_test
+from wordcloud import WordCloud, STOPWORDS
+
+
 
 
 
@@ -37,15 +39,11 @@ data = data.dropna(axis = 1)
 data.columns = ['Label', 'Text']
 
 data['Level']= data['Label'].map({'spam' : 1, 'ham' :0})
-# data['Level'] = np.where(data['Label'] == 'spam', 1, 0)
 
 
 
 #Visualisation
 
-from wordcloud import WordCloud, STOPWORDS
-
-'''cdir = os.path.dirname(os.path.realpath('__file__'))'''
 
 def create_wc(text):
     wc = WordCloud(width= 800,
@@ -70,23 +68,7 @@ create_wc(ham_words)
 
 
 
-# corpus = []
-# for i in range(0,data.shape[0]):
-#     text = re.sub('[^a-zA-Z]', ' ', data['Text'][i]).lower().split()
-#     ps = PS()
-#     text = [ps.stem(word) for word in text if word not in set(stopwords.words('english'))]
-#     text = ' '.join(text)
-#     corpus.append(text)
-
-
-
-#Creating the Bag of Words model
-
-
-#
-# clean_text = ' '.join(corpus)
-# tokens = nltk.word_tokenize(clean_text)
-# words = sorted([lemmatizer.lemmatize(word) for word in tokens if word not in set(stopwords.words('english'))])
+##Creating the Bag of Words model
 
 corpus = []
 
@@ -99,83 +81,13 @@ for i in range(0, data.shape[0]):
     clean_text = ' '.join(filtered_words)
     corpus.append(clean_text)
 
-# corpus = []
-# for i in range(0, data.shape[0]):
-#     text = re.sub('[^a-zA-Z]', ' ', data['Text'][i]).lower().split()
-#     ps = PS()
-#     unique_words = sorted(set([ps.stem(word) for word in text if word not in set(stopwords.words('english'))]))
-#     filtered_words = [word for word in unique_words if len(word) > 2]
-#     # using set() for unique items
-#     clean_text = ' '.join(filtered_words)
-#     corpus.append(clean_text)
 
-# toks = nltk.word_tokenize(''.join(corpus))
-
-
-# def BagOfWords(text_str):
-#     words = nltk.word_tokenize(''.join(text_str))
-#     bags = np.zeros(len(words))
-#     for sent in text_str:
-#         for i, word in enumerate(words):
-#             if word == sent:
-#                 bags[i] = 1
-#
-#     return np.array(bags)
-#
-#
-# BOW_matrix = BagOfWords(corpus)
-
-
-
-from sklearn.feature_extraction.text import  CountVectorizer
-vectorizer = CountVectorizer(max_features = 1000)
-X_unigram = vectorizer.fit_transform(corpus).toarray()
 Y = data.iloc[:, 2].values
 
 Y_transpose = pd.DataFrame(Y.T)
-# X_df_unigram = pd.DataFrame(X_unigram)
-# print(Y_transpose.shape[0])
-# print(X_df.shape)
 
 
-# (2 in X)
-'''countr = 0
-drop_index_arr = []
-while countr < Y_transpose.shape[0]:
-    if Y_transpose[countr] == 1:
-        print(Y_transpose[countr], type(Y_transpose[countr]))
-        drop_index_arr.append(countr)
-    countr += 1'''
-
-'''print(len(drop_index_arr))
-X_spam = X_df.drop(X_df.index[drop_index_arr])
-print(X_spam.shape)
-
-from scipy.stats import binom_test
-#prop_X =
-
-count = 0
-success = []
-while count < X_spam.shape[1]:
-    counter_1 = 0
-    for i in X_spam[count]:
-        if i == 1:
-            counter_1 +=1
-    success.append(counter_1)
-
-    #if X_spam[count] == 1:
-    count+=1
-
-print(len(success))
-
-P_VAL = []
-for i in success:
-    p_val = binom_test(i, X_spam.shape[0])
-    P_VAL.append(p_val)
-
-print(P_VAL)'''
-
-def freq_pval_finder(X, gram):
+def freq_pval_finder(X, vectorizer, gram, alternative):
     X_df = pd.DataFrame(X)
     zeros =[]
     ones = []
@@ -199,12 +111,10 @@ def freq_pval_finder(X, gram):
             counter += 1
         zeros.append(zero_filter)
         ones.append(ones_filter)
-        # break
 
     success = [] # word is present
     failure = [] # word is absent
-    # for i in range(0, Y_transpose.shape[0]):
-    #     # print(i)
+
     for i, j in zip(ones, zeros):
         each_success = []
         each_failure = []
@@ -212,53 +122,40 @@ def freq_pval_finder(X, gram):
             each_success.append(Y_transpose[0][k])
         for l in j:
             each_failure.append(Y_transpose[0][l])
-        # break
+
         success.append(each_success)
         failure.append(each_failure)
-            # print(Y_transpose)
-        # if Y_transpose ==
 
 
     success_prop = []
     failure_prop = []
-    # success_count = 0
 
     for i,j in zip(success, failure):
         success_prop.append(sum(i)/ len(i)) #gives the proportion of spams when the word is present
         failure_prop.append(sum(j)/len(j)) #gives the proportion of spams when the word is not present
-        # while success_count < len(i):
-        # each_success_count = 0
-        # for j in i:
-        #     if j == 1:
-        #         each_success_count += 1
-
-            # success_count += 1
-
-
-    from scipy.stats import binom_test
 
     P_VAL = []
     for i, j in zip(success, failure_prop):
-        p_val = binom_test(sum(i), len(i), j)
+        p_val = binom_test(sum(i), len(i), j, alternative = alternative)
         P_VAL.append(p_val)
 
-    # word_keys = []
-    # for key in vectorizer.vocabulary_.keys():
-    #     word_keys.append(key)
 
     word_keys = sorted(vectorizer.vocabulary_.items(), key = lambda x : x[1])
 
-    # word_index = list(range(0, 100))
-    # word_list = zip(word_index, vectorizer.vocabulary_)
 
-    # wordwise_pval = zip(word_keys, P_VAL)
+    def word_to_ngrams(words, n):
+        return [' '.join(words[i: i + n]) for i in range(len(words) - n + 1)]
 
-    # import operator
-    # sorted_pval = sorted(list(wordwise_pval), key=operator.itemgetter(1))
+    tokens = [nltk.word_tokenize(i) for i in corpus]
+
+    ngrams = []
+    for i in tokens:
+        ngrams.append(word_to_ngrams(i, gram))
+
+    word_to_grams = list(chain(*ngrams))
 
 
-    tokens = nltk.word_tokenize(' . '.join(corpus))
-    fdist = nltk.FreqDist(ngrams(tokens, gram))
+    fdist = nltk.FreqDist(word_to_grams)
 
     pval = []
     c = 0
@@ -292,27 +189,41 @@ def freq_pval_finder(X, gram):
     df_filtered_freq_pval = pd.DataFrame(filtered_freq_pval, columns= ['Words', 'P-Value', 'Frequency'])
     return df_filtered_freq_pval
 
-# df_word_freq_pval.to_csv("Wordwise_PValue_Frequency.csv")
+# Two-sided test
 
-freq_pval_finder(X_unigram)
-df_unigram = freq_pval_finder(X_unigram)
+## Unigrams
 
+vectorizer_unigram = CountVectorizer(max_features = 1000)
+X_unigram = vectorizer_unigram.fit_transform(corpus).toarray()
+df_unigram = freq_pval_finder(X_unigram, vectorizer_unigram, 1, 'two-sided')
 df_unigram.to_csv("Unigram_PValue_Frequency.csv")
 
 
-
-# Bigrams
-# bigrams = []
-# for i in corpus:
-#     tokens = nltk.word_tokenize(i)
-#     bigram = ngrams(tokens, 2)
-#     print(Counter(bigram))
+## Bigrams
 
 vectorizer_bigram = CountVectorizer(max_features = 1000, ngram_range = (2,2))
 X_bigram = vectorizer_bigram.fit_transform(corpus).toarray()
-
-df_bigram = freq_pval_finder(X_bigram)
+df_bigram = freq_pval_finder(X_bigram, vectorizer_bigram ,2, 'two-sided')
 df_bigram.to_csv("Bigram_PValue_Frequency.csv")
+
+## Trigrams
+vectorizer_trigram = CountVectorizer(max_features = 1000, ngram_range = (3,3))
+X_trigram = vectorizer_trigram.fit_transform(corpus).toarray()
+df_trigram = freq_pval_finder(X_trigram, vectorizer_trigram ,3, 'two-sided')
+df_trigram.to_csv("Trigram_PValue_Frequency.csv")
+
+
+## One_tailed test
+
+df_onetailed_unigram = freq_pval_finder(X_unigram, vectorizer_unigram, 1, 'greater')
+df_onetailed_unigram.to_csv("OneTailedUnigram_PValue_Frequency.csv")
+
+df_onetailed_bigram = freq_pval_finder(X_bigram, vectorizer_bigram ,2, 'greater')
+df_onetailed_bigram.to_csv("OneTailedBigram_PValue_Frequency.csv")
+
+df_onetailed_trigram = freq_pval_finder(X_trigram, vectorizer_trigram ,3, 'greater')
+df_onetailed_trigram.to_csv("OneTailedTrigram_PValue_Frequency.csv")
+
 
 
 
